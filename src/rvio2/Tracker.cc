@@ -159,7 +159,12 @@ void Tracker::preprocess(const int nImageId,
     mlCamPositions.push_back(tcG);
 }
 
-
+/**
+ * @brief 解畸变
+ * 
+ * @param src 输入点集
+ * @param dst 输出点集
+ */
 void Tracker::undistort(const std::vector<cv::Point2f>& src, 
                         std::vector<cv::Point2f>& dst)
 {
@@ -233,7 +238,14 @@ void Tracker::DisplayNewer(const int nImageId,
     cv::putText(imOut.image, std::to_string(nImageId), cv::Point2f(15,30), cv::FONT_HERSHEY_PLAIN, 2, green, 2);
 }
 
-
+/**
+ * @brief 光流跟踪
+ * 
+ * @param nImageId 
+ * @param image 
+ * @param nMapPtsNeeded 
+ * @param mFeatures 
+ */
 void Tracker::VisualTracking(const int nImageId, 
                              const cv::Mat image, 
                              int nMapPtsNeeded, 
@@ -253,6 +265,7 @@ void Tracker::VisualTracking(const int nImageId,
     int nFeats = vFeatPts.size();
     int nInliers = 0;
 
+    // 用 std::accumulate 判断是否有内点
     if (std::accumulate(vInlierFlags.begin(), vInlierFlags.end(), 0)>0)
     {
         undistort(vFeatPts, vFeatPtsUN);
@@ -265,6 +278,7 @@ void Tracker::VisualTracking(const int nImageId,
             MatchesForRansac.col(i).normalize();
         }
 
+        // RANSAC 筛选内点，结果保存在 vInlierFlags 中， 0为 outlier
         mpRansac->FindInliers(PointsForRansac, MatchesForRansac, mRr, nInliers, vInlierFlags);
 
         if (nInliers==0)
@@ -279,6 +293,7 @@ void Tracker::VisualTracking(const int nImageId,
         mbRefreshVT = true;
     }
 
+    // 可视化
     if (mbShowTrack)
     {
         // Show the result in rviz
@@ -311,7 +326,8 @@ void Tracker::VisualTracking(const int nImageId,
             if (!pFeature->IsInited())
             {
                 std::vector<cv::Point2f> vTrack;
-
+                
+                // 取出对应id的特征的全部历史信息
                 vTrack.swap(mmFeatTrackingHistory.at(id));
                 vTrack.push_back(ptUN);
 
@@ -321,6 +337,7 @@ void Tracker::VisualTracking(const int nImageId,
                 {
                     if (mbEnableSlam)
                     {
+                        // 计算与第一帧的视差
                         float parallax = Parallax(vTrack.front(), vTrack.back());
 
                         if (nMapPtsNeeded>0)
@@ -363,7 +380,7 @@ void Tracker::VisualTracking(const int nImageId,
 
                 mmFeatTrackingHistory.at(id).swap(vTrack);
             }
-            else
+            else // end if (!pFeature->IsInited())
             {
                 if (!pFeature->IsMarginalized())
                     mvFeatMeasForExploration.emplace_back(id,ptUN);

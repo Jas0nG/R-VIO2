@@ -115,6 +115,12 @@ private:
                       const std::vector<cv::Point2f>& vNewFeatUVs, 
                       cv_bridge::CvImage& imOut);
 
+    /**
+     * @brief 把归一化平面坐标转换为球坐标系下的方向向量
+     * 
+     * @param pt 输入的归一化平面坐标
+     * @param e 球坐标系下的方向向量
+     */
     inline void OrienVec(const cv::Point2f& pt, Eigen::Vector3f& e)
     {
         float phi = atan2(pt.y, sqrt(pow(pt.x,2)+1));
@@ -122,12 +128,23 @@ private:
         e << cos(phi)*sin(psi), sin(phi), cos(phi)*cos(psi);
     }
 
+    /**
+     * @brief 计算排除旋转视差
+     * 
+     * @param pt0 当前点的归一化平面坐标
+     * @param ptk keyPoint归一化平面坐标
+     * @return float 由平移产生的视差角度(从这个点被追踪直到当前帧)
+     */
     inline float Parallax(const cv::Point2f& pt0, const cv::Point2f& ptk)
     {
         Eigen::Vector3f e0, ek;
         OrienVec(pt0, e0);
         OrienVec(ptk, ek);
+        // mRx = RcG*(mlCamOrientations.front().transpose());
+        // mRx: 该特征初始化时的camera orientation 与 当前帧的camera orientation 的相对旋转
+        // e0: 该特征初始化时的归一化平面坐标对应的方向向量
         float theta = fabs(acos(ek.dot(mRx*e0)));
+        // asin(1/40) ~ 1.44 degree
         return 40*sin(theta)>1 ? theta*180/M_PI : 0;
     }
 
